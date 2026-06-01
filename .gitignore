@@ -1,0 +1,5 @@
+data/
+miniforge3/
+.DS_Store
+__pycache__/
+*.png

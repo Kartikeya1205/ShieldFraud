@@ -1,0 +1,36 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def plot_anomaly_distribution(mse_losses, threshold):
+    plt.figure(figsize=(10, 6))
+    
+    # Plot density of the reconstruction losses
+    sns.histplot(mse_losses, bins=50, kde=True, color='royalblue', stat="density")
+    
+    # Draw the dynamic decision threshold boundary discovered by your pipeline
+    plt.axvline(threshold, color='crimson', linestyle='--', linewidth=2, 
+                label=f'Anomaly Threshold ({threshold:.3f})')
+    
+    plt.title('Credit Card Transaction Reconstruction Error Distribution', fontsize=14)
+    plt.xlabel('Reconstruction Loss (MSE)', fontsize=12)
+    plt.ylabel('Density', fontsize=12)
+    plt.legend()
+    plt.grid(axis='y', alpha=0.3)
+    
+    # Save chart to disk
+    plt.savefig('anomaly_distribution.png', dpi=300, bbox_inches='tight')
+    print("📈 Saved anomaly distribution plot to 'anomaly_distribution.png'")
+    plt.close()
+
+# Mock simulation mapping your exact pipeline output values for visual confirmation
+if __name__ == "__main__":
+    print("🎨 Generating production-ready visuals...")
+    # Generate distribution curve mirroring your 0.306 baseline and 1.087 threshold
+    np.random.seed(42)
+    normal_losses = np.random.exponential(scale=0.306, size=55000)
+    fraud_losses = np.random.normal(loc=2.5, scale=0.8, size=1962)
+    simulated_losses = np.concatenate([normal_losses, fraud_losses])
+    
+    plot_anomaly_distribution(simulated_losses, threshold=1.08744)
+    print("✅ Visual assets created successfully.")
