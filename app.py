@@ -9,7 +9,7 @@ from src.autoencoder_model import train_autoencoder
 from src.explainer import compute_shap_insights
 
 # 1. Page Configuration & Aesthetic Injection
-st.set_page_config(page_title="ShieldFraud AI Enterprise", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="ShieldFraud Enterprise Hub", page_icon="🛡️", layout="wide")
 
 st.markdown("""
     <style>
@@ -64,14 +64,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Master App Navigation Header
+# 2. Master App Navigation Header (Removed 'AI' from branding)
 st.markdown("""
     <div style='display: flex; align-items: center; margin-bottom: 25px;'>
         <div style='background: linear-gradient(135deg, #0EA5E9 0%, #2563EB 100%); padding: 12px; border-radius: 10px; margin-right: 15px;'>
             <span style='font-size: 24px;'>🛡️</span>
         </div>
         <div>
-            <h1 style='margin: 0; font-size: 2.2rem; letter-spacing: -0.05rem;'>SHIELD-FRAUD AI <span style='color:#0EA5E9; font-size:1.2rem; vertical-align:middle;'>v2.0 PRO</span></h1>
+            <h1 style='margin: 0; font-size: 2.2rem; letter-spacing: -0.05rem;'>SHIELD-FRAUD SYSTEM <span style='color:#0EA5E9; font-size:1.2rem; vertical-align:middle;'>v2.0 PRO</span></h1>
             <p style='margin: 0; color: #64748B; font-size: 0.95rem;'>Autonomous Transaction Guard and Deep Anomaly Explainer Backend</p>
         </div>
     </div>
@@ -88,16 +88,43 @@ def load_base_data_cache():
     X_train_normal = X_train[y_train == 0].sample(40000, random_state=42)
     return X_train, X_test, y_train, y_test, X_train_normal
 
-# 4. Control Panel Sidebar Configuration
-st.sidebar.markdown("### 🖥️ CONTROL NODE")
-uploaded_file = st.sidebar.file_uploader("Upload Transaction Stream", type=["csv"])
+# 4. Control Panel Sidebar - Ingestion Source Toggle
+st.sidebar.markdown("### 🕹️ DATA INGESTION SOURCE")
+source_mode = st.sidebar.radio("Select Ingestion Stream Type:", ["📁 Static CSV Upload", "🗄️ Enterprise SQL Database"])
+
+test_df = None
+
+if source_mode == "📁 Static CSV Upload":
+    uploaded_file = st.sidebar.file_uploader("Ingest Transaction Stream (CSV)", type=["csv"])
+    if uploaded_file is not None:
+        test_df = pd.read_csv(uploaded_file)
+else:
+    st.sidebar.markdown("#### 🔑 Database Connection Config")
+    db_host = st.sidebar.text_input("Host Address", value="localhost")
+    db_port = st.sidebar.text_input("Port", value="5432")
+    db_name = st.sidebar.text_input("Database Name", value="bank_ledger")
+    
+    if st.sidebar.button("🔌 Query Live Transaction Batch"):
+        with st.spinner("Connecting to secure database pipeline..."):
+            try:
+                from sqlalchemy import create_engine
+                engine = create_engine(f'postgresql://postgres:password@{db_host}:{db_port}/{db_name}')
+                query = "SELECT * FROM ledger_transactions WHERE checked = False LIMIT 5000"
+                test_df = pd.read_sql(query, engine)
+                st.sidebar.success(f"📥 Successfully pulled {len(test_df)} unverified records!")
+                st.session_state.live_db_data = test_df
+            except Exception as e:
+                st.sidebar.error(f"❌ Connection Failed: Check your local configurations.")
+
+if source_mode == "🗄️ Enterprise SQL Database" and 'live_db_data' in st.session_state:
+    test_df = st.session_state.live_db_data
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🎛️ PARAMETER BOUNDS")
 sensitivity = st.sidebar.slider("Anomaly Alarm Sensitivity (%)", min_value=90.0, max_value=99.9, value=98.0, step=0.1)
 
 if st.sidebar.button("🏗️ INITIALIZE PLATFORM CORE", use_container_width=True):
-    with st.spinner("Compiling PyTorch weights onto unified memory matrices..."):
+    with st.spinner("Compiling neural network weights onto unified memory matrices..."):
         _, _, _, _, X_train_normal = load_base_data_cache()
         model, device = train_autoencoder(X_train_normal, epochs=6, batch_size=512)
         st.session_state.trained_model = model
@@ -111,8 +138,7 @@ tab_dashboard, tab_forensics, tab_performance = st.tabs([
 
 # --- TAB 1: MISSION CONTROL ---
 with tab_dashboard:
-    if uploaded_file is not None:
-        test_df = pd.read_csv(uploaded_file)
+    if test_df is not None:
         display_df = test_df.drop('Class', axis=1, errors='ignore')
         
         if st.session_state.trained_model is None:
@@ -183,7 +209,7 @@ with tab_dashboard:
         st.markdown("""
             <div style='background-color: #0F172A; border: 1px dashed #334155; padding: 60px; border-radius: 14px; text-align: center; margin-top: 30px;'>
                 <h3 style='color: #64748B;'>SYSTEM AWAITING INGESTION FEED</h3>
-                <p style='color: #475569;'>Please drop an operational transaction .csv snapshot inside the sidebar panel controller to spin up live tracking telemetry charts.</p>
+                <p style='color: #475569;'>Please drop an operational transaction format snapshot or pull from the database panel to spin up live tracking telemetry charts.</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -193,60 +219,4 @@ with tab_forensics:
     if 'flagged_idx' not in st.session_state or len(st.session_state.flagged_idx) == 0:
         st.info("💡 Awaiting live anomalies from Mission Control to populate deep forensic mapping analysis trees.")
     else:
-        f_col1, f_col2 = st.columns([1, 3])
-        with f_col1:
-            selected_target = st.selectbox("Select Target Audit Reference Profile Index:", options=st.session_state.flagged_idx)
-            trigger_audit = st.button("🔬 EXECUTE AI DECONSTRUCTION", use_container_width=True)
-            
-        with f_col2:
-            if trigger_audit:
-                with st.spinner("Extracting structural impact vector paths via SHAP..."):
-                    target_pos = np.where(st.session_state.flagged_idx == selected_target)[0][0]
-                    X_anomaly_sample = st.session_state.proc_df.iloc[[target_pos]]
-                    
-                    X_train, _, y_train, _, _ = load_base_data_cache()
-                    X_train_normal = X_train[y_train == 0].sample(100, random_state=42)
-                    X_train_normal_clean = X_train_normal.drop([c for c in ['Time', 'Amount'] if c in X_train_normal.columns], axis=1, errors='ignore')
-                    
-                    shap_values = compute_shap_insights(st.session_state.trained_model, X_train_normal_clean, X_anomaly_sample)
-                    
-                    # Construct detailed premium explanations graph
-                    fig_s, ax_s = plt.subplots(figsize=(10, 5))
-                    fig_s.patch.set_facecolor('#070A12')
-                    ax_s.set_facecolor('#0F172A')
-                    
-                    vals = shap_values[0]
-                    features = st.session_state.proc_df.columns
-                    idx_sort = np.argsort(np.abs(vals))
-                    colors = ['#EF4444' if x > 0 else '#10B981' for x in vals[idx_sort]]
-                    
-                    ax_s.barh(range(len(idx_sort)), vals[idx_sort], color=colors, align='center', alpha=0.9)
-                    ax_s.set_yticks(range(len(idx_sort)))
-                    ax_s.set_yticklabels(features[idx_sort], color='#E2E8F0')
-                    ax_s.set_xlabel("SHAP Impact Weight Vector Strength", color='#94A3B8')
-                    ax_s.set_title(f"Risk Structural Deconstruction Chart — Incident Reference Instance #{selected_target}", color='#F8FAFC', pad=15)
-                    st.pyplot(fig_s)
-
-# --- TAB 3: PERFORMANCE LOGISTICS ---
-with tab_performance:
-    st.markdown("### 📊 PLATFORM BASELINE & METRIC INTEGRITY")
-    p_col1, p_col2 = st.columns(2)
-    
-    with p_col1:
-        st.markdown("""
-            <div class='metric-card'>
-                <h4 style='color:#38BDF8; margin-top:0;'>Core Architecture Network Details</h4>
-                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Model Engine Type:</strong> Fully-Connected Deep Learning Residual Autoencoder</p>
-                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Layer Matrix Maps:</strong> Input(29) ➔ HiddenLinear(16) ➔ LatentBottleneck(8) ➔ HiddenLinear(16) ➔ Output(29)</p>
-                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Optimization Solvers:</strong> AdamW (Weight Decay Tuning Enabled at 1e-5)</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with p_col2:
-        st.markdown("""
-            <div class='metric-card'>
-                <h4 style='color:#A855F7; margin-top:0;'>Apple Silicon M2 Optimization Layer</h4>
-                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Hardware Driver Link:</strong> PyTorch Native Metal Performance Shaders (MPS) Backend</p>
-                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Memory Profile Scheme:</strong> Unified Memory Architecture (Zero-Copy System Buffer Fetching)</p>
-            </div>
-        """, unsafe_allow_html=True)
+        f_col1, f_col2 = st.columns(
