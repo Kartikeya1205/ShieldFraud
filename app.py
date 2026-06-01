@@ -219,4 +219,60 @@ with tab_forensics:
     if 'flagged_idx' not in st.session_state or len(st.session_state.flagged_idx) == 0:
         st.info("💡 Awaiting live anomalies from Mission Control to populate deep forensic mapping analysis trees.")
     else:
-        f_col1, f_col2 = st.columns(
+        f_col1, f_col2 = st.columns([1, 3])
+        with f_col1:
+            selected_target = st.selectbox("Select Target Audit Reference Profile Index:", options=st.session_state.flagged_idx)
+            trigger_audit = st.button("🔬 EXECUTE DECONSTRUCTION", use_container_width=True)
+            
+        with f_col2:
+            if trigger_audit:
+                with st.spinner("Extracting structural impact vector paths via SHAP..."):
+                    target_pos = np.where(st.session_state.flagged_idx == selected_target)[0][0]
+                    X_anomaly_sample = st.session_state.proc_df.iloc[[target_pos]]
+                    
+                    X_train, _, y_train, _, _ = load_base_data_cache()
+                    X_train_normal = X_train[y_train == 0].sample(100, random_state=42)
+                    X_train_normal_clean = X_train_normal.drop([c for c in ['Time', 'Amount'] if c in X_train_normal.columns], axis=1, errors='ignore')
+                    
+                    shap_values = compute_shap_insights(st.session_state.trained_model, X_train_normal_clean, X_anomaly_sample)
+                    
+                    # Construct detailed premium explanations graph
+                    fig_s, ax_s = plt.subplots(figsize=(10, 5))
+                    fig_s.patch.set_facecolor('#070A12')
+                    ax_s.set_facecolor('#0F172A')
+                    
+                    vals = shap_values[0]
+                    features = st.session_state.proc_df.columns
+                    idx_sort = np.argsort(np.abs(vals))
+                    colors = ['#EF4444' if x > 0 else '#10B981' for x in vals[idx_sort]]
+                    
+                    ax_s.barh(range(len(idx_sort)), vals[idx_sort], color=colors, align='center', alpha=0.9)
+                    ax_s.set_yticks(range(len(idx_sort)))
+                    ax_s.set_yticklabels(features[idx_sort], color='#E2E8F0')
+                    ax_s.set_xlabel("SHAP Impact Weight Vector Strength", color='#94A3B8')
+                    ax_s.set_title(f"Risk Structural Deconstruction Chart — Incident Reference Instance #{selected_target}", color='#F8FAFC', pad=15)
+                    st.pyplot(fig_s)
+
+# --- TAB 3: PERFORMANCE LOGISTICS ---
+with tab_performance:
+    st.markdown("### 📊 PLATFORM BASELINE & METRIC INTEGRITY")
+    p_col1, p_col2 = st.columns(2)
+    
+    with p_col1:
+        st.markdown("""
+            <div class='metric-card'>
+                <h4 style='color:#38BDF8; margin-top:0;'>Core Architecture Network Details</h4>
+                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Model Engine Type:</strong> Fully-Connected Deep Learning Residual Autoencoder</p>
+                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Layer Matrix Maps:</strong> Input(29) ➔ HiddenLinear(16) ➔ LatentBottleneck(8) ➔ HiddenLinear(16) ➔ Output(29)</p>
+                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Optimization Solvers:</strong> AdamW (Weight Decay Tuning Enabled at 1e-5)</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with p_col2:
+        st.markdown("""
+            <div class='metric-card'>
+                <h4 style='color:#A855F7; margin-top:0;'>Apple Silicon M2 Optimization Layer</h4>
+                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Hardware Driver Link:</strong> PyTorch Native Metal Performance Shaders (MPS) Backend</p>
+                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Memory Profile Scheme:</strong> Unified Memory Architecture (Zero-Copy System Buffer Fetching)</p>
+            </div>
+        """, unsafe_allow_html=True)
