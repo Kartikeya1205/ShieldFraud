@@ -1,0 +1,11 @@
+cat << 'EOF' > requirements.txt
+streamlit
+pandas
+numpy
+torch
+matplotlib
+seaborn
+scikit-learn
+ctgan
+shap
+EOF
