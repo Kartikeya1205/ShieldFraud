@@ -64,7 +64,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Master App Navigation Header (Removed 'AI' from branding)
+# 2. Master App Navigation Header
 st.markdown("""
     <div style='display: flex; align-items: center; margin-bottom: 25px;'>
         <div style='background: linear-gradient(135deg, #0EA5E9 0%, #2563EB 100%); padding: 12px; border-radius: 10px; margin-right: 15px;'>
@@ -84,9 +84,32 @@ if 'trained_model' not in st.session_state:
 
 @st.cache_data
 def load_base_data_cache():
-    X_train, X_test, y_train, y_test = load_and_preprocess('data/creditcard.csv')
-    X_train_normal = X_train[y_train == 0].sample(40000, random_state=42)
-    return X_train, X_test, y_train, y_test, X_train_normal
+    import os
+    data_path = 'data/creditcard.csv'
+    
+    if os.path.exists(data_path):
+        # Local Mode: Load the real file if it exists on your machine
+        X_train, X_test, y_train, y_test = load_and_preprocess(data_path)
+        X_train_normal = X_train[y_train == 0].sample(40000, random_state=42)
+        return X_train, X_test, y_train, y_test, X_train_normal
+    else:
+        # Cloud Mode Fallback: Mathematically simulate dataset structure if file is missing from GitHub
+        st.sidebar.info("☁️ Cloud Environment Active: Simulating baseline tensors...")
+        
+        np.random.seed(42)
+        total_mock_records = 50000
+        
+        # Mirror the exact 29-dimensional feature layout (V1-V28 + scaled_amount)
+        mock_features = np.random.normal(loc=0.0, scale=1.0, size=(total_mock_records, 29))
+        feature_names = [f'V{i}' for i in range(1, 29)] + ['scaled_amount']
+        
+        X_train = pd.DataFrame(mock_features, columns=feature_names)
+        X_test = pd.DataFrame(np.random.normal(loc=0.0, scale=1.0, size=(10000, 29)), columns=feature_names)
+        
+        y_train = pd.Series(np.zeros(total_mock_records))
+        y_test = pd.Series(np.zeros(10000))
+        
+        return X_train, X_test, y_train, y_test, X_train
 
 # 4. Control Panel Sidebar - Ingestion Source Toggle
 st.sidebar.markdown("### 🕹️ DATA INGESTION SOURCE")
@@ -124,7 +147,7 @@ st.sidebar.markdown("### 🎛️ PARAMETER BOUNDS")
 sensitivity = st.sidebar.slider("Anomaly Alarm Sensitivity (%)", min_value=90.0, max_value=99.9, value=98.0, step=0.1)
 
 if st.sidebar.button("🏗️ INITIALIZE PLATFORM CORE", use_container_width=True):
-    with st.spinner("Compiling neural network weights onto unified memory matrices..."):
+    with st.spinner("Compiling neural network weights onto memory matrices..."):
         _, _, _, _, X_train_normal = load_base_data_cache()
         model, device = train_autoencoder(X_train_normal, epochs=6, batch_size=512)
         st.session_state.trained_model = model
@@ -231,7 +254,10 @@ with tab_forensics:
                     X_anomaly_sample = st.session_state.proc_df.iloc[[target_pos]]
                     
                     X_train, _, y_train, _, _ = load_base_data_cache()
-                    X_train_normal = X_train[y_train == 0].sample(100, random_state=42)
+                    
+                    # Safe check for cloud fallback mode data structure size
+                    sample_size = min(100, len(X_train))
+                    X_train_normal = X_train.sample(sample_size, random_state=42) if len(y_train) == 0 or int(y_train.sum()) == 0 else X_train[y_train == 0].sample(sample_size, random_state=42)
                     X_train_normal_clean = X_train_normal.drop([c for c in ['Time', 'Amount'] if c in X_train_normal.columns], axis=1, errors='ignore')
                     
                     shap_values = compute_shap_insights(st.session_state.trained_model, X_train_normal_clean, X_anomaly_sample)
@@ -271,8 +297,8 @@ with tab_performance:
     with p_col2:
         st.markdown("""
             <div class='metric-card'>
-                <h4 style='color:#A855F7; margin-top:0;'>Apple Silicon M2 Optimization Layer</h4>
-                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Hardware Driver Link:</strong> PyTorch Native Metal Performance Shaders (MPS) Backend</p>
-                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Memory Profile Scheme:</strong> Unified Memory Architecture (Zero-Copy System Buffer Fetching)</p>
+                <h4 style='color:#A855F7; margin-top:0;'>Execution Device Information Layer</h4>
+                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Local Hardware Integration:</strong> Apple Silicon Metal Performance Shaders (MPS) Backend</p>
+                <p style='font-size:0.9rem; color:#94A3B8;'><strong>Cloud Engine Deployment:</strong> Linux Server Environment (Standard CPU Compute Allocation)</p>
             </div>
         """, unsafe_allow_html=True)
